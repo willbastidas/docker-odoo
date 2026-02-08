@@ -14,13 +14,6 @@
                         name="stock_below_min"
                         domain="[('stock_min_alert', '>', 0)]"/>
             </xpath>
-
-            <xpath expr="//group" position="inside">
-                <separator/>
-                <filter string="Cantidad Faltante" 
-                    name="group_by_stock_alert" 
-                    context="{'group_by': 'stock_min_alert'}"/>
-            </xpath>
         </field>
     </record>
 

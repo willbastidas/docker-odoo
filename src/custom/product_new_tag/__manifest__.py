@@ -1,5 +1,5 @@
 {
-    'name': 'mail alert',
+    'name': 'product new tag',
     'version': '17.0.0.1',
     'description': """
     """,
@@ -9,12 +9,10 @@
     'category': '',
     'depends': [
         'base',
-        'mail',
-        'mail_bot',
         'stock'
     ],
     'data': [
-        'data/ir_cron.xml',
+        'security/ir.model.access.csv',
         'views/product_template_view.xml',
     ],
     'auto_install': False,
