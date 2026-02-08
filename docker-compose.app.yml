@@ -5,7 +5,7 @@ services:
     container_name: ${PROJECT_NAME}
     build:
       context: .
-      dockerfile: ./.resources/Dockerfile
+      dockerfile: Dockerfile
     image: local_odoo_${PROJECT_NAME}:${ODOO_MINOR}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -17,6 +17,7 @@ services:
     volumes:
       - odoo-web:/var/lib/odoo
       - ./src:/home/odoo/src
+      - ./src/custom:/mnt/extra-addons
       - ./.resources/.coveragerc:/home/odoo/.coveragerc
       - odoo_data:/home/odoo/data
       - py3:/usr/local/lib/

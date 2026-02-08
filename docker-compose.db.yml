@@ -5,7 +5,7 @@ services:
     container_name: ${PROJECT_NAME}_db
     build:
       context: .
-      dockerfile: ./.resources/db.Dockerfile
+      dockerfile: db.Dockerfile
       args:
         POSTGRES_IMG_VERSION: ${POSTGRES_IMG_VERSION}
     image: local_odoo_db_${PROJECT_NAME}:${POSTGRES_IMG_VERSION}
