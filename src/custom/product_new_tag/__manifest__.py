@@ -14,6 +14,7 @@
     'data': [
         'security/ir.model.access.csv',
         'views/product_template_view.xml',
+        'wizard/product_storage_tag_wizard.xml',
     ],
     'auto_install': False,
     'application': False,

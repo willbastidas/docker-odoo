@@ -1,0 +1,1 @@
+from . import product_storage_tag_wizard

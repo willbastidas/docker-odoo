@@ -1,5 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
+    <record id="product_template_search_view_inherit_storage_tags" model="ir.ui.view">
+        <field name="name">product.template.search.inherit.storage.tags</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_search_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group" position="inside">
+                <filter string="Etiquetas de Almacenamiento" 
+                        name="group_by_storage_tags" 
+                        context="{'group_by': 'storage_tag_ids'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="product_template_kanban_view_inherit_tags" model="ir.ui.view">
+        <field name="name">product.template.kanban.inherit.tags</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_kanban_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="inside">
+                <field name="storage_tag_ids"/>
+            </xpath>
+
+            <xpath expr="//div[@t-if='record.show_on_hand_qty_status_button.raw_value']" position="after">
+                <div name="storage_tags" class="mt-1">
+                    Almacenamiento: <field name="storage_tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
     <record id="product_template_form_view_inherit_storage_tags" model="ir.ui.view">
         <field name="name">product.template.form.inherit.storage.tags</field>
         <field name="model">product.template</field>
@@ -13,4 +44,5 @@
             </xpath>
         </field>
     </record>
+
 </odoo>
