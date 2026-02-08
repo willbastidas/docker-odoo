@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <template id="fix_sale_report_lines" inherit_id="sale.report_saleorder_document">
+            <xpath expr="//t[@t-call='web.external_layout']" position="attributes">
+                <attribute name="t-call">web.basic_layout</attribute>
+            </xpath>
+
+            <xpath expr="//div[hasclass('page')]" position="replace">
+                <div class="page" style="margin: 0; padding: 0; font-family: 'Arial', sans-serif; font-size: 11px; color: #000; position: relative;">
+                    
+                    <div style="position: absolute; top: 400px; left: 0; width: 100%; text-align: center; transform: rotate(-10deg); font-size: 130px; font-weight: bold; color: rgba(0,0,0,0.05); z-index: -1; pointer-events: none; letter-spacing: 15px;">
+                        NO FISCAL
+                    </div>
+
+                    <table style="width: 100%; border: 1.5px solid #000; border-collapse: collapse; margin-bottom: 5px;">
+                        <tr>
+                            <td style="width: 30%; border-right: 1.5px solid #000; padding: 10px; text-align: center;">
+                                <img t-if="doc.company_id.logo" t-attf-src="data:image/png;base64,{{ doc.company_id.logo.decode('utf-8') }}" style="max-height: 85px;"/>
+                            </td>
+                            <td style="width: 70%; text-align: center; padding: 5px;">
+                                <div style="font-size: 20px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;">
+                                    <span t-field="doc.company_id.name"/>
+                                </div>
+                                <div style="font-size: 9px; margin-top: 5px; line-height: 1.2;">
+                                    <span t-field="doc.company_id.street"/>, <span t-if="doc.company_id.street2" t-field="doc.company_id.street2"/><br/>
+                                    <span t-field="doc.company_id.city"/>, <span t-field="doc.company_id.state_id.name"/><br/>
+                                    RIF: <span t-field="doc.company_id.vat"/>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <div style="border-top: 2px solid #000; border-bottom: 1px solid #000; height: 3px; margin-bottom: 10px;"></div>
+
+                    <div style="border: 1.2px solid #000; margin-bottom: 15px;">
+                        <div style="text-align: center; font-weight: bold; padding: 4px; border-bottom: 1.2px solid #000; background-color: #fcfcfc; text-transform: uppercase;">
+                            <span t-field="doc.partner_id.name"/>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="width: 60%; padding: 6px; border-right: 1.2px solid #000; vertical-align: top;">
+                                    <strong>Razón Social:</strong> <span t-field="doc.partner_id.name"/><br/>
+                                    <strong>RIF:</strong> <span t-field="doc.partner_id.vat"/>
+                                </td>
+                                <td style="width: 40%; padding: 6px; vertical-align: top;">
+                                    <strong>FECHA:</strong> <span t-field="doc.date_order" t-options='{"widget": "date"}'/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="padding: 6px; border-top: 1.2px solid #000;">
+                                    <strong>DOMICILIO FISCAL:</strong><br/>
+                                    <span t-field="doc.partner_id.street"/>, <span t-field="doc.partner_id.city"/>, <span t-field="doc.partner_id.state_id.name"/>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <div style="font-size: 12px; font-weight: bold;">Presupuesto <span t-field="doc.name"/></div>
+                        <table style="width: 100%; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; font-size: 10px;">
+                            <tr>
+                                <td style="padding: 3px;">Fecha de emisión: <span t-field="doc.date_order" t-options='{"widget": "date"}'/></td>
+                                <td style="text-align: right; padding: 3px;">Válido hasta: <span t-field="doc.validity_date"/></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #000;">
+                        <thead>
+                            <tr style="background-color: #f2f2f2; border-bottom: 1.5px solid #000;">
+                                <th style="border-right: 1px solid #000; padding: 5px; text-align: left;">Descripción</th>
+                                <th style="border-right: 1px solid #000; padding: 5px; text-align: center; width: 60px;">Unidades</th>
+                                <th style="border-right: 1px solid #000; padding: 5px; text-align: right; width: 85px;">Precio Unitario</th>
+                                <th style="border-right: 1px solid #000; padding: 5px; text-align: center; width: 50px;" t-if="any(line.discount > 0 for line in doc.order_line)">Desc.%</th>
+                                <th style="border-right: 1px solid #000; padding: 5px; text-align: center; width: 70px;">IVA</th>
+                                <th style="border-right: 1px solid #000; padding: 5px; text-align: right; width: 90px;">Subtotal</th>
+                                <th style="padding: 5px; text-align: right; width: 90px; background-color: #e9ecef;">TOTAL REF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="doc.order_line" t-as="line">
+                                <tr style="border-bottom: 1px solid #000;">
+                                    <td style="border-right: 1px solid #000; padding: 5px;"><span t-field="line.name"/></td>
+                                    <td style="border-right: 1px solid #000; padding: 5px; text-align: center;"><span t-field="line.product_uom_qty"/></td>
+                                    <td style="border-right: 1px solid #000; padding: 5px; text-align: right;"><span t-field="line.price_unit"/></td>
+                                    <td style="border: 1px solid #000; padding: 5px; text-align: center;" t-if="any(line.discount > 0 for line in doc.order_line)">
+                                        <t t-if="line.discount and line.discount > 0">
+                                            <span t-field="line.discount"/>
+                                        </t>
+                                        <t t-if="not line.discount or line.discount == 0">
+                                            <span>0.00</span>
+                                        </t>
+                                    </td>
+                                    <td style="border-right: 1px solid #000; padding: 5px; text-align: center;"><span t-esc="', '.join(map(lambda x: x.name, line.tax_id))"/></td>
+                                    <td style="border-right: 1px solid #000; padding: 5px; text-align: right;"><span t-field="line.price_subtotal"/></td>
+                                    <td style="padding: 5px; text-align: right; font-weight: bold;">
+                                        $<span t-field="line.price_unit_usd" t-options='{"widget": "float", "precision": 2}'/>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 15px; width: 45%; margin-left: 55%;">
+                        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000;">
+                            <tr>
+                                <td style="padding: 5px; border: 1px solid #000;"><strong>SUBTOTAL:</strong></td>
+                                <td style="padding: 5px; text-align: right; border: 1px solid #000;"><span t-field="doc.amount_untaxed"/></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px; border: 1px solid #000;"><strong>IMPUESTOS:</strong></td>
+                                <td style="padding: 5px; text-align: right; border: 1px solid #000;"><span t-field="doc.amount_tax"/></td>
+                            </tr>
+                            <tr style="border-bottom: 2px solid #000;">
+                                <td style="padding: 5px; border: 1px solid #000;"><strong>TOTAL:</strong></td>
+                                <td style="padding: 5px; text-align: right; border: 1px solid #000;"><strong><span t-field="doc.amount_total"/></strong></td>
+                            </tr>
+                            <tr style="background-color: #f2f2f2;">
+                                <td style="padding: 5px; border: 1px solid #000;"><strong>TOTAL REF:</strong></td>
+                                <td style="padding: 5px; text-align: right; border: 1px solid #000;">
+                                    <strong>$<span t-esc="sum(l.price_unit_usd * l.product_uom_qty for l in doc.order_line)" t-options='{"widget": "float", "precision": 2}'/></strong>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </xpath>
+        </template>
+    </data>
+</odoo>

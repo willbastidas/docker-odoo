@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_account_move_print_wizard_form_new_buttom" model="ir.ui.view">
+        <field name="name">account.move.print.wizard.form</field>
+        <field name="model">account.move.print.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Imprimir Asiento Contable">
+                <sheet>
+                    <div>
+                        <field name="invoice_text" widget="text" readonly="1" style="font-family: monospace;"/>
+                    </div>
+                </sheet>
+                <field name="state" invisible="1"/>
+                <footer invisible="state != 'posted'">
+                    <button string="Imprimir nueva factura" type="object" name="action_generate_pdf_new" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,554 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="report_saleorder_document_inherit_universal" inherit_id="sale.report_saleorder_document">
+        <!-- Aquí puedes agregar o modificar bloques del reporte original -->
+        <!-- Ejemplo: Añadir un campo personalizado al encabezado -->
+        <xpath expr="//t[@t-call='web.external_layout']" position="replace">
+            <t t-call="web.external_layout">
+                    <t t-set="doc" t-value="doc.with_context(lang=doc.partner_id.lang)"/>
+                    <t t-set="forced_vat" t-value="doc.fiscal_position_id.foreign_vat"/> <!-- So that it appears in the footer of the report instead of the company VAT if it's set -->
+                    <t t-set="address">
+                        <div t-field="doc.partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True}"/>
+                        <p t-if="doc.partner_id.vat">
+                            <t t-if="doc.company_id.account_fiscal_country_id.vat_label" t-out="doc.company_id.account_fiscal_country_id.vat_label"/>
+                            <t t-else="">Tax ID</t>: <span t-field="doc.partner_id.vat"/>
+                        </p>
+                    </t>
+                    <t t-if="doc.partner_shipping_id == doc.partner_invoice_id                              and doc.partner_invoice_id != doc.partner_id                              or doc.partner_shipping_id != doc.partner_invoice_id">
+                        <t t-set="information_block">
+                            <strong>
+                                <t t-if="doc.partner_shipping_id == doc.partner_invoice_id">
+                                    Invoicing and Shipping Address:
+                                </t>
+                                <t t-else="">
+                                    Invoicing Address:
+                                </t>
+                            </strong>
+                            <div t-field="doc.partner_invoice_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;, &quot;phone&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
+                            <t t-if="doc.partner_shipping_id != doc.partner_invoice_id">
+                                <strong>Shipping Address:</strong>
+                                <div t-field="doc.partner_shipping_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;, &quot;phone&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
+                            </t>
+                        </t>
+                    </t>
+                    <div class="page">
+                        <div class="oe_structure"/>
+
+                        <h2 class="mt-4">
+                            <span t-if="env.context.get('proforma', False) or is_pro_forma">Pro-Forma Invoice # </span>
+                            <span t-elif="doc.state in ['draft','sent']">Quotation # </span>
+                            <span t-else="">Order # </span>
+                            <span t-field="doc.name">SO0000</span>
+                        </h2>
+
+                        <div class="row mt-4 mb-2" id="informations">
+                            <div t-if="doc.client_order_ref" class="col-auto col-3 mw-100 mb-2" name="informations_reference">
+                                <strong>Your Reference:</strong><br/>
+                                <span class="m-0" t-field="doc.client_order_ref">SO0000</span>
+                            </div>
+                            <div t-if="doc.date_order" class="col-auto col-3 mw-100 mb-2" name="informations_date">
+                                <strong t-if="doc.state in ['draft', 'sent']">Quotation Date:</strong>
+                                <strong t-else="">Order Date:</strong><br/>
+                                <span class="m-0" t-field="doc.date_order" t-options="{&quot;widget&quot;: &quot;date&quot;}">2023-12-31</span>
+                            </div>
+                            <div t-if="doc.validity_date and doc.state in ['draft', 'sent']" class="col-auto col-3 mw-100 mb-2" name="expiration_date">
+                                <strong>Expiration:</strong><br/>
+                                <span class="m-0" t-field="doc.validity_date">2023-12-31</span>
+                            </div>
+                            <div t-if="doc.user_id.name" class="col-auto col-3 mw-100 mb-2">
+                                <strong>Salesperson:</strong><br/>
+                                <span class="m-0" t-field="doc.user_id">Mitchell Admin</span>
+                            </div>
+                        </div>
+
+                        <!-- Is there a discount on at least one line? -->
+                        <t t-set="lines_to_report" t-value="doc._get_order_lines_to_report()"/>
+                        <t t-set="display_discount" t-value="any(l.discount for l in lines_to_report)"/>
+
+                        <div class="oe_structure"/>
+                        <table class="table table-sm o_main_table table-borderless mt-4">
+                            <!-- In case we want to repeat the header, remove "display: table-row-group" -->
+                            <thead style="display: table-row-group">
+                                <tr>
+                                    <th name="th_description" class="text-start">Description</th>
+                                    <th name="th_quantity" class="text-end">Quantity</th>
+                                    <th name="th_priceunit" class="text-end">Unit Price</th>
+                                    <th name="th_discount" t-if="display_discount" class="text-end">
+                                        <span>Disc.%</span>
+                                    </th>
+                                    <th name="th_taxes" class="text-end">Taxes</th>
+                                    <th name="th_subtotal" class="text-end">
+                                        <span>Amount</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="sale_tbody">
+
+                                <t t-set="current_subtotal" t-value="0"/>
+
+                                <t t-foreach="lines_to_report" t-as="line">
+
+                                    <t t-set="current_subtotal" t-value="current_subtotal + line.price_subtotal"/>
+
+                                    <tr t-att-class="'bg-200 fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
+                                        <t t-if="not line.display_type">
+                                            <td name="td_name"><span t-field="line.name">Bacon Burger</span></td>
+                                            <td name="td_quantity" class="text-end">
+                                                <span t-field="line.product_uom_qty">3</span>
+                                                <span t-field="line.product_uom">units</span>
+                                                <span t-if="line.product_packaging_id">
+                                                    (<span t-field="line.product_packaging_qty" t-options="{&quot;widget&quot;: &quot;integer&quot;}"/> <span t-field="line.product_packaging_id"/>)
+                                                </span>
+                                            </td>
+                                            <td name="td_priceunit" class="text-end">
+                                                <span t-field="line.price_unit">3</span>
+                                            </td>
+                                            <td t-if="display_discount" class="text-end">
+                                                <span t-field="line.discount">-</span>
+                                            </td>
+                                            <t t-set="taxes" t-value="', '.join([(tax.invoice_label or tax.name) for tax in line.tax_id])"/>
+                                            <td name="td_taxes" t-attf-class="text-end {{ 'text-nowrap' if len(taxes) &lt; 10 else '' }}">
+                                                <span t-out="taxes">Tax 15%</span>
+                                            </td>
+                                            <td t-if="not line.is_downpayment" name="td_subtotal" class="text-end o_price_total">
+                                                <span t-field="line.price_subtotal">27.00</span>
+                                            </td>
+                                        </t>
+                                        <t t-elif="line.display_type == 'line_section'">
+                                            <td name="td_section_line" colspan="99">
+                                                <span t-field="line.name">A section title</span>
+                                            </td>
+                                            <t t-set="current_section" t-value="line"/>
+                                            <t t-set="current_subtotal" t-value="0"/>
+                                        </t>
+                                        <t t-elif="line.display_type == 'line_note'">
+                                            <td name="td_note_line" colspan="99">
+                                                <span t-field="line.name">A note, whose content usually applies to the section or product above.</span>
+                                            </td>
+                                        </t>
+                                    </tr>
+
+                                    <t t-if="current_section and (line_last or lines_to_report[line_index+1].display_type == 'line_section') and not line.is_downpayment">
+                                        <tr class="is-subtotal text-end">
+                                            <td name="td_section_subtotal" colspan="99">
+                                                <strong class="mr16">Subtotal</strong>
+                                                <span t-out="current_subtotal" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}">31.05</span>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </t>
+                            </tbody>
+                        </table>
+                        <div class="clearfix" name="so_total_summary">
+                            <div id="total" class="row" name="total">
+                                <div t-attf-class="#{'col-6' if report_type != 'html' else 'col-sm-7 col-md-6'} ms-auto">
+                                    <table class="table table-sm table-borderless">
+                                        <!-- Tax totals -->
+                                        <t t-set="tax_totals" t-value="doc.tax_totals"/>
+                                        <t t-call="sale.document_tax_totals"/>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="oe_structure"/>
+
+                        <div t-if="not doc.signature" class="oe_structure"/>
+                        <div t-else="" class="mt-4 ml64 mr4" name="signature">
+                            <div class="offset-8">
+                                <strong>Signature</strong>
+                            </div>
+                            <div class="offset-8">
+                                <img t-att-src="image_data_uri(doc.signature)" style="max-height: 4cm; max-width: 8cm;"/>
+                            </div>
+                            <div class="offset-8 text-center">
+                                <span t-field="doc.signed_by">Oscar Morgan</span>
+                            </div>
+                        </div>
+                        <div>
+                            <span t-field="doc.note" t-attf-style="#{'text-align:justify;text-justify:inter-word;' if doc.company_id.terms_type != 'html' else ''}" name="order_note"/>
+                            <p t-if="not is_html_empty(doc.payment_term_id.note)">
+                                <span t-field="doc.payment_term_id.note">The payment should also be transmitted with love</span>
+                            </p>
+                            <div class="oe_structure"/>
+                            <p t-if="doc.fiscal_position_id and not is_html_empty(doc.fiscal_position_id.sudo().note)" id="fiscal_position_remark">
+                                <strong>Fiscal Position Remark:</strong>
+                                <span t-field="doc.fiscal_position_id.sudo().note">No further requirements for this payment</span>
+                            </p>
+                        </div>
+                        <div class="oe_structure"/>
+                    </div>
+                </t>
+            </t>
+        </xpath>
+        <xpath expr="//div[@class='page']" position="replace">
+            <div class="page">
+                <div class="header">
+                    <table class="table table-sm o_main_table mt-4" style="padding-top: 20px;">
+                        <tr>
+                            <td>
+                                <h1>ORDEN DE PEDIDO</h1>
+                            </td>
+                            <td>
+                                <img
+                                    t-att-src="'data:image/png;base64,%s' % 'iVBORw0KGgoAAAANSUhEUgAAAQAAAABYCAIAAACVur4fAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAADGNSURBVHhe7X2HX1XH1vb7J3y/e+97E2Oh9yoCGltMouYmMYnGRKNGE3tijA0UFEVFLIjdRGNL7AWkCCr2jhS7WLGhglIORfopwPesNXtv9jkU0RiveTnrN2xmz16zZs2a9cys2Xufc/6nxkxmasZkBoCZmjWZAWCmZk1mAJipWZMZAGZq1mQGgJmaNZkBYKaXouqa6qrq6ir84WCoqqqsqtIb9AZKBhQaaqp1rzRBIJpU2sU/JmSqaqqgQpUeqbpaX1NjICZKTSIzAMz0clRdBU+H55Pr6fSGEoOhQlep01bqdTotleHSn07UQm2qNuiRqEUArBruTufI0KmhSodUVaWjS5RQSJB5LpkBYKaXI0y7WnJMzLpVer2hzKCv1Gt1VTog4UlVdUUVOP50wmQuEp1W1xgw3ZNbo2lddVUlpwrKN0ySsg2TGQBmejnC1FsO56OpmiIQnUGvNWgrSnNTNXd/Kbq7vDh93Z9PJXfWU0LmwfqS7O3lhUd0Zbf0unxaDqooCDJU67E2cB5Lkpx47hdLgaRsw/TCAIBoDvyQkQCGAwxA53yVimtPyTZUwqwwFpVAL1kECyRiVk5yE5yV8hILtVZLxCliQamASAiGfLk6H5mTSMhiHpHURJckFikvGAQnyRTVuUQhumpURbqGMsGNSjRRSnJkUlcRF4mTa6iEv8EEtysVAOC+VPEGoDj31sb0+G5PYm1zoxzzdjvl4ciJThtPglmuwvzIO9Mx2ik33j7niGvuiZ4FyWOepa0uf5JiqCyGElgZ9MJmOMJ6lMiAnAAAbAnA0hj92RUA7ZFfUMSGUSYS44dSKuOEBRLlzE4kVCWdGQ9SqUx8gXqBOuCTSrmcSlTszMjsUrucN6iqEB5YA6k9wJJKoQ/nTZsWJcwPl+VqRLVsyGu1tNUDI8ujS2IqEgwgLpcIIiBHusCEpnUImDlyxWXkBB9JQAe5VQbLm08YHYQfsIasP9mnSHN7ZVZcO02US0GET8Eu34JIb0rIqzMRnMSpyAtmZMSRyn3yd/nmiyM4d7Yv2Npes91bE+GVG+udfeST/Otzy3JPG3RF0AOLD+OPNCFlWB2MIW2LXzkAMF4lJaWagoKSkjJRgrFE29Q82qVRZI9nP+BbAqQQDkVFz/I0+SWlZVSEMWYfKq+oKCqGvLLyisrS0rJnxSUVFRXUDapEUKmorNTkFxY9I7hTWyrfIPnwJh22PlyD1DDodQZIg3rFJaWCDcqgRbSFpZLzghe6Vel0OiNfq4Z/Q6C8z2JWVCGB+SRQtM6mhjiyMxi5Zg06kV9QiEvISxdICCupN6AueqHVaiFBr9eTOagFqATD0aFSi6AWokgqGlV3880kGmkE/1CeYhCoDJOg8FnhreXZsT75UW75UW0pRXtSogznRUkUJ3Eq8oJZysinogofC3Z2Kdj4n8KtHxRG+BbE2OTE/SMzwTbr5NdF6au0xZcM+vwqfSnDgNye7M8AgCfiRNK4AXphACSnnp88LTh0waLwpb/siIjKevIUhcKnhHsmp17YE58AT6JynupKS8sjo+NC5oXPnrtw5ep19+5n4BLpWFNz61b6ylVr5y1cGhgcMnfhkmW/rD6blMrQwMWaBxmP5i1aNnteeNiSFVExe4qLS6hUppzcvF27Y+/cuYc8exIm5urzFy5Pnz13fvjSuWFLomLjS0pLIQkWAQ9U2rM34cixk1y75uHjzK07I4FJcQoCmlAl9fwlcUo9qqm5fuv27Hlhs0IXoL+/b96W8eixuEQmZieGQ+/dfzA0bDH0X/7rb2nXb4GBAIC5H5erqw8fPTF15hxcXbJi1bkLl1GHPYYwQDzckXW/b05LuyEk0yXR/zeYoCCUJABg42vAnKHVGRBzlBbcWpUT00kT46SJs9PE22vimpwEc/1VHDR7PPJjvTTRXvlR7QpwjHbLi3bJjnbP3tsx/5J/eXGaoaqkSl9C94WkuRUh2qsDAPeWEmjLzohRP0+8cPFyUnJq8Jz5QbNCc/PIh2gCY46du2NQDqdHHuOM474Dh/oPHnY6MenmzdsXL13Jzc0DJw1ydU1BQeGVq9fgl/2HDFv/x5aradefPM0hl6VgpeZ0YvLIn8afOJUI1P3w88SYPXtRqND9+w/8ps44m5wqnTNFxcRNnjYjPf0O3G7w8FHHT55BIVwKR6wtc+aHr1i1hhlrrqRd/2ni5AcPHopTkLZSNyNkXkRULJ2QEqTD4WMnxvkFnjp9Fl1esHjZ6HGTHmc9QbnipjHx+34YN+nYiVNp128u++W3sX5Tbt2+QwwcjAEeYYuWBs6YdePmbXQQc8fT7FxUo9WFYQCelHMX+g4YAgyQSQgfdED5m0xQkJRFJ+D8Bq2+qpJ9rbLg1pqcmI4Fu9sWRHm/uuSr2eOSl/B23l4rTUxbze4O+REdKaE8yiV7b9u8S5MrClMMuhKYlMxqQFAAdWDeV7QH4N4Kf6jBrI8pmf2z5s7d+zz2p+lEHrLdMXGYDsvKCABigOH6Xw38bm/CQeExIIKpirCMTAwISk45L53LlJiUgpUhJycPrjlh8tSNm7dJF5gyMh5NmxmKBYdOII+Fx8bth5tWVFSmXbs5JWhmcgpd5eiiprKyEnP0qjUbiL+m5uq165MCpz/kGV2QTqubs2BRdGy8dM505PhJFD57RouPRlMweuxEIBx50TWUTwoI2rR1B7HW1OQXFI33D9y4ZTvyooeIf8KXrvjlt3XIHz91BlczGHKoLmaH8rKK3zdtw6qFJSvraba4pBjqjSXhD4RVCjmwK9KjM9VVlQU3V2fH+WiiXfOj273KBL+PxSLgmR/jlR+DU6XcSxNjn7fPoejC9IqCx3ArXRW2aSUIKsn1xeOzRumFAbBtVyRGC7E78uXlFTNDF2DSFTyCjAGAWYKG88Cho6PGjvefFowAQxGl0P0HGT/7B546c1Y6lwlT47cjRs+etxCT+vxFyzJ56lXICAAyAWa9+w/ynxo8cOhIVFFHTRIA1m4QrV+7fnNSYFBGRu0KAAAgtKsLgFlzwxCliNPf1m+ECGREDx5mPBrnF3BUTAHs7mg0fNlKcm0m+MeylauGjhozP3zJ2ElTdsfG08aDN/QCQlgAg+csuHDpatjiFVgJUULeb2KgN4+EjioA0HqHbTEDwFsT48Ke+moT+309he6aGNec/Z8X3d6uq9RU0Y1RWgEYAFJU0gi9MAC2R+xGhFOp1SJfWPgMs+ze/QeYR+IAHhQAsIGk2yDZ2Tl/bNk+csz4I8dPiRKFGgIA1oSf/aasXvv7kOGjI6P2SKUymQKA1YvbdwAqnbt4GdOtX2CQcClBAEDY4mW/rFkvTm/cuo1V5ZHxClAvAIBAsVXAYKNr6/7YQhe4s4hnxk6cjEapBBL0BqBlxeq1yhSO9Xj5ylWTg2Zie4DVEmsmFfJ+XfD8sWVb728GIXYaNHREwIxZFRVkWMnWbzBBQUqvFQANpN0++ZHv5sR4550ZVJ6dUGWowDpAky55vzIRNUgvDABsHAEATHWYySKj9yBGFyGvCDNAKITHiD0AxhmKaIloT4zIBAEDdr0mIdDd+xkIx0+eTkReaQh0+kxK4IzZeXn52Az87Bdw9RptE6kuczx4kIGrSQwA2lCyTOwT4EzIgIJD569ctU7xRegML5weMq+EbxDF7T8QMH3WM/n+EggAmDV3we5oI6QdPnZy5twwBD+Qg0D/q0HfnTt/EeVwYshFyInd7bTgkLIyuid26UraqLETDh05jrxoF3sAbJ9Xr/8d+s1duHjBoqUwgqiOY05ObtDs0KUrVsXG7Vv/x2Yg5PzFyyh/80kM05sAgILdHQp2ddFEOeUk2BdeDdKWZkIVPUUeBhM3q5eaBAA17dod8+XAIStXrw2ZvxCRBgabTEA7N6mxHZExIfPDSxgAQoMLF6+EzFu4/Nc1c8OXTg2ec/nqNWaspTv37mMePXGKNqwQRrcZeQd56kzylGkzMx9nIR+2ePmMOfMRc6MtATZsggNnhCQmn6NarAMye+L3f/PdcMTcc8MWTZs558ZNvicj/dVcu3F7yvTZCOEWLf9lzAT/A4ePUalMmH1nzwuL4RVAEXjyTNKQET/MDVs8P3wpInjAQ0ANfyKGuXsvY/LU6ZC54tffwICdbmlpGetIVzHTL1q6cvGKX5G/nX5vzHj/2PgEjgpRUBO//yAqYiGlk5oaaAWEYLYQp28ykfe/KQBoXxDRuTDaNTfGQnOib0XOGUw6wotoEJ+HgRcGQGZWdkTUng0bt0Tv2fvwoYgfaLB5Dia6n/Ho2o1bmPIxyDTPVVc/zsyK2YMZbisWh8eZT+CLYOOKEiFSv3T5WnZOHlQn5UkYyUPkffnq9ZJSmlxz8zRJKecLCoogENdwRK2raTfAQ3XYX0GQvysyBtvK+IRDT3NyURHiQARQdjowxMTv37Ij8uKVNEKF8EQmnc4AzcEAfqxvbMbq3Nw8uOmGP7bsiNh9O/2u4CRZUoNUPS9PExu/f9PWnUAj6qGEbE9uTssO/P7m7TuinbTrN4F/iOYm9Lfv3LtxM50Hii7ff/Dw/IXLInp8wwn6UoJdycn+mwCge6PRXoXRnvm7XfPi3y9OX6PX5sHtyY+wE3glt0EbIZiAx5qJ7+wp5VJhHQjCX8UEL4iGnllwAGzI/dm7FFEogIuIPDVFy0OVlreSolAwkBsZ4wqEIiplglDRkELUjCwEhGZFhp2fnneBRIlCYCe0sTQpqSQIwlVRGSYQeBCFSq/p5iE9wau9BGZIEqeq7JtL0JCSKQDoLlDOntcLgFiXvHg7ej6ws5MmulPBpYm6ipsYNjJjlZZuBDVKLwwADA2GnRxL9iwar2pqD0QMEpFf8lEhqgbPoFIVCU7wCpnSKc3xtJVBiXAmalJmE+XsfNwcMlyFCkg5agJE11iWdI0SsfCYUXW4OY6SHiCpF7U16CrLEYnlUTkOzF9biCMViIpCBF8g1Ymo66IMjFIJI4S44D7cMBEpT4JfOQmxdYVLOnGGrzWtbeoc/5HStKJB76rqQs3tpZlxHnkxNppoF020K6UYPipJOnUBSIzKo92MTzkJZkWCiSiRYhw1sXaaSM/8He2zI32yzg6tKD0vdDIYtPAUSeEG6M+uAG8UvZDb0FCb+ELj9ELMdQjOJeXqk/SnRDeN4KsAPnBGwFNrQLMJ4U/AFa4jlTdOqKUXr+PrdQadlm6KGPTarJy7y9MPdn4Y5/401jc7tkP2Ht/sOF/kn8a2pzyOcT6UoXIfFBIblXeQmKUjldOlOFxVVzEWJZhjOubEdM7Z4/tkb9t7sZ3uHptUln8N/UQwodXRm3KSwg3Q/ykAmKkRkibrRh1Cx1CQThonYIgkYnUuJ2fTG7SVen1FSakmpejJpmeZm4szIoszIoofRpQ8iniWQQl5UYJjCY4PjcuNk7iEunSqMChVVKkkI7L00c7iR2ufZa0ozFxflHVMW6LR6yj4xCr73DnODIDmQeSvFOFgl5WnyX+anZuTq5FTXnZOXtaTnOJivsMmVXgOgQ+8Bv4sWFVVOeI7PVBQiVlXW1X1rKamAnLoPjw1K27IyxnlaFJeb1JXUWdUiUIvivTLq6qw982rrq6gj6NRotWJWBqlJgGArNJ025jpDSR4Ccc2N26lfztsVI9PPvu0z1dS6t33o169P/68T5TxE8DGCc6AuF9PvlZWXVUKd9Nr9TosArQdhlPSp7deT9JX1SDSoVfxgA9e5CiOo1AOfzpCR6PURAAI81U/fJS5YdPWlavXrlq3gdPvq9f9vmrNhqUrV+3ZmyAe8ZjpDSQxgyFz/tLldh06v9WytYWtvZJaWli1srL5bcNGwdwUkgEAx9DzR8Mq6BOSvPPU0twL58N1+pDuX574DgISVOFe0pIge7+O1qFGqQkAIPfHH5nv6InTHj7tYSwbRxdKTi62Tsg4t7CwGjJ8lCa/QNQw0xtLF69c7fJBDyt7Ryf3tkqydXK1c3Fbv5Ff8WgawR3gFTQtknMAAxVV9Ln4UoOhQk9IYJd8XanaoKNEHg/UabEnMRgqEe7xLaDnxC1NXgEYAMdOnmn3bmcLWzt7F3cpubrbOblgCjED4G9BrwoARBR701YAQOAPQVUa+MtR2Cl5Cn61ifBGLclJyeMPkKOlgIN/HdTAckSXaVl4JQCQV4DjpxJ9O3W1dnAShnN083Rw9XB092xtbTt05I/5+YWC30xvLL06AMC3eIvJkyOWAD35CHsd3X1hb/0LSLTNuFPy9Mk0jsf4q1GoYQN2xUKTVwQAapAyJxOTfTu/Z20vAQAJGHB09QAAvh/5Q755BXjj6VWuALyzoH/kjlIiX+GcuvDPJzi1aLJeIpZaIn4u5ZPn0SsEwGgzAN58eqUAeH2EMCcp9cLO3bG7Y+Oj4/ZFRCMTFxUbt2t3TMq5i8pLJS9BZgA0L/qbAkCnM4zzm/LvVq3tnN2w7SSFnd0Qireysh0/aUpJsfQFCC9BZgA0L/obA2DS5LdaAgDk+rbOruL2Y0srm3ET/cUHPF6OzABoXvQ3BYBWqx/vH/COpbWjuye5HCcHVw9Le8cJkwPMADBTU+nvCgCdHiHQOxZWwvXZ8TzsXdwt7BzMADDTC5AZACb0lwOAqnJdkVeOgtT5BgnNsxQ6GpNSoM7Umzch5RJLbYCpPmqCQD5vmFOhJnLiqmBQMmpSl9S9WpcuXknr+mFP60YBoMgRLTYkli811mRTDKuwNNIKSKvVYQ/QEiGQAICHDABbhwn+pgB4rkw1/VUAeG7bJtZ5VlySm6fR5BeYvFBEb3UYDHr+7QV+tCKVN0702FDFWl5eAcn0xYwqS4EBbCSfWuCHmioqLS0DP5LJBxSlOqqX5lEPmqE98eCHxRm9fwJR3HpBYVExOiKVkqiGnYsJavHDTzro9Y3d6aPvh1S95Y//aAzK5xcUoq4oFHTh8tVO3T5sHABkaOoQdcmkLw2R0rQg2EO8oCOdM8GJoRVMUVBQhOFWmwLEzdEo8H9qXW1kkF9A0Fut2ggAIPp3cve0d3a1tHWYPHWGyQtvLIKqm/S9XvoLV4DComcXL11JTE49m3Iu5dwFkZJTzyefu5DNn9YF5eTkxe3dP2N26ODvR3zet1/f/gN//HnCilW/HT1+MjOLvnQRhG6Q81OXoIkoo8yjR5lnk1MhUEhOSjmH09NnU26n3xU3hmHiS1eurl63ftSYsX36Dejdb8Cw0WPmhi3ad+BQhvRpZuqakC9Onz0rOZ2YHLZ4OThRBWnEDz8tXfnrkeMnc3I1gscEiGxt/gi2Sj+wpN+9H70nPjgkVIjq/fWAgd8Px2ht2bHr8pU0eAPYdFpd2rUb0DkpFSa6KFJy6gVY7EHGI0iEcB5J+vDa7fQ7iUkp3F+JE71GSXr6XcWZnjzN2ZtwcFpwyFfffNurT9+vBw6eOmPWrt0xsEllJc0sWAE6f9BdPYJIagCgA7A09watk0ygKPXCJdgWFlaaTj1PR+h5/NSZ69dvmdyJhzWUkpzcPPjAb+t+H+83ZcCQob2/6v/1gG8HDxvpHzBtw6atsLZGU+s2aJRb5sarq4EVNJ2Uej4x6dyQ4aNa29g6uLqLBLXtXehOKMpPnD4LfeBXUPLa9ZvaSvoOVhKh9pgG6C8EQHLK+R6ffu7a1rut77ve73Zu16GTl++7Hl4+Hbp0Szh4tLJCu3XHrs/6fm3n7NbK2ralpU0baxvIaWWFvLWzh9fHn/WeH75U+Rw6d4cUEYQhX7h4maunl6d3+7Y+HZC8OnTy9O2AxXGCf2Blpe7W7TtTps3w7tgZwiGzjbUtC7dBQ5g/uv+n16JlK7Oe0Dexib5BYMLhY98NH+Xm5UNvR1rbtrGxwwqLusi7tPXu8/WAzdt2St92gT9jwrBhkRL5cxcvB06f1a37R7ZOLmiuFfertZUNWiextg6+nbr+NMEv8WxKZlb2t9+PgBlhIq/2HUXy8G7v6uWzZMUqDCGkiSMoYPpMaE49lTmR7Jxc/QOC4DPaSt32XZGf9e0Hb6YWbe2pv5bWLa1s2tjYd+3eU3zl45VrNwAATJxO7l7KINZdARQwA4djJ06GkZHU7XrD2t7tbZ1dP/i414FDxxQl1fQ488lv6/74st8A93a+UKallTVMCjuQNVg3KAZrY9Zb9svqO3cfiFq81GOwqfWTpxM7v98dPGgRU76IfMjrXD2AAfI9d09nTy+v9mQ92BD2GTrqR/FdneQtz1tjQX8hAE6fOevTqWsrK2t+ddQZYLVxcrG0tYdzz5kfDu9EH1DRztkV3RCYpptcvLTZOjm3sSEz9fzksx0RUZWV9E0haitjgpkZMq9FG0tLOwcs6JQcnLC3Q5UB39HXjH76xZfwYwtbe7iIEMsm83B09bR1dG6NkbCx69PvG/HVovmagtAF4R4+7VEFvXMkZbDUeggTO7h5wD8wYGjip4n+9x48EjrQHMUZni8pW1JSsnbDRgTZgA0UQy1IIEN5sLlo/NA7N0s7xxZtLLp80H3ytOD3enwEYFg7OMNK1rCSozMqAjahYYuETKXXYyZMertVG/RRsFFycP5Xi5YIjjHxz5wzD6pCSaAOfuDIo4MMEizp1s53X8IhCEEIBABY2QMA0ggiAQCYTSUA8CckKUNfc3Tt22EjLWzs0CiNILeIDBLGEQFJ9096HT52AvzCQ5T5CeMVG7f/8779YTF4PKpDDZiU9SHHRaM8Ih6CARr+p9cX23ZElpXTNw6KV4mQgXB3L5932ljCOIj4uRZ5P7RlJGB00Ed3dgAniHqrZeu+3wwSX+MnFjHSplH6CwFwNimF9lv05hw6TH2G6+Po4ukFV7NxcILrO8MzPNoCxCRHTuwuxI++YUSxhmBs6LvFJcFEmLBD54db2juideFewl9R0dP3XVcvbxgdZiL5QkkhGTq7SZrDoFhqEJwcOnIiICgYJrayc4AQVhL6QJq7cFkGp5eTm6eNkzMgN+KHsdkcDklxAr2FSB6DuHZW6AKIxTzH4y35PTdNjiiUkcs9beBMDs7ou+gsFXJCc1AmbPEyxZ9AyI3zm2xhY0+9kDlRC76IyGq8fyBDwom0haNIPNQujAxETQmaWcqbGQLA+93RU0kTVg8AAOf6TVu5IanRM2dTevX5Gq7JZqSBo3nEzRN5lMC8A78bpnzFE8dpFDghj90OZhPwA9hURR59WMYWIGcAY/QxzaGc7UwWxhINE4XMWyi+Cl/4LgCANZxciDpLrYtEmitDQ5fEauYJyw8cMhSbSdQlWEKIyob10l8LgC4f9GAASMxKwizILuKJ6RkMlnb2VnaYJERnjBLkYxbv0PV9BIuSXCYBAAyDAACpIezChsYIQT5agaGx7NAlWTKPh5QHDyZp705dhaPgktAHkyiEsEBiBhsSlgU4K64iZvuDv6YXZlHCMp3esGTFr7bObmrfQoJM7innMWCEBFqIRKEYfnFVSfDgugAAjfefggFW80M4QAWtoDA6QvOIOwmEjyKxcA94/3s9Pk69IH3h3PlLVzoRAIw2wWQxV3clBAIdPHK8+yefYVh5MazlJEPBRI5Oo8aOvyu+5p49QwAAGWz8ps2aIxYoQiC7OMwIDa3snVw92/l27tq+y3sunu0wdgCDYhwklCCmCg0LL5ZfbQAAENjA5jCag9xxxaSYoTD6NDQYfUIa1jo7bDPEbu2NWAEaAgASfBRjgwkMW4IPPvoEETwCA5yiJ2o2yHdwcbOwc8Dkqt5pNQIAJAgHbCANqwfiaQwG2qIphI2lsCHBsmBDE5iMsaxjtNza+WBhRYs0PBzDCBODmfPu6NGQEaPFhx8YAKQPtp7YJzTUWTgN9KF9CO8EMJFTT401UVLTAcAdJ2QC6jjFAiXixjbWdhS3sD2hEqbVSt5zgy5evtq1+0fqEUQCpJ2wAjAA0KFdUbGdun0IIWrvRMLQYEJBFIQFp/YWBX0yWPJ+nU63aPkvNjSJOPJyR+ZCLWtHF5/OXafNDNmbcOj8hUvnL1xGZsq0YGwL0dPaJjy8oDNW75i4/UI4FmcMGWItbMYwQ0FJiKUuA1SEc8QUtAZCVfQa6Z9vt8CSLkIg2sf8d+8CNQIAzAdwyq8GDN62M+LGrfT7GY+w2cfGAHvlOvwEbgwnAkpsyCTRjQKA5nJXj+9GjN60bWdicuqJ04krVq3BlgBq27tg2VUJdyNrIgN9sIH2DwyKjd+ffO7iocPHEFJjooIy8mRDawimWFgcc3yXD3te5d+zEPT0aTa2em1s7WslywkV4e7I9O43wC9g2oxZc6ZMndF/8PeubdvBaLgqogt1egEA8OoEkCOcQCuYLCF57AQ/7LARu3f5sEcLC8sPP+51S9xIYGl8F6gHTwe1QoBPLE2bd0SAYc3vGxGggkE0pG5OTCJzFiwqkL/LUWxVeRWkzKEjx707dsE8QqMGw/KqC8xgAd8VHStufCmEfcKmrTs9fTrYObuIEQQz1MAGHcpnZ9N9wjt374cvXj47dD4w3PPTz7HyUHQHZThQRBMYuI8+6z177oL54UvgP8GzQzdt2yEFUfBZ+jOyYV16TQBQJlEkLLgISyZOxixi9HXn0HbNho3YrmFConhDGIWNCEf36dgl9Rx9K60gEwBImvDDERI+ZaqYBhS6cvV6rz59rRyc1CsM5T3I+93b+a77YzPCGImbuxwZE9fuXZqiIBYDo+iPtQLYOCr/0gxo05btmIcAPKzsHHvQqkW1eAParefHu6JicjX5FJXyq+1FxSV79x/8pPeX5Gd8H4OUkeW/EABEK+jy0JE/IGovLinV6nRIJWXl6XfuhS9ZvlH8doHkogyA93sYhUBkAWjutWLV2uW/roY+5OiySeWjJ2Dv4OKx7NffKirJj4XPC5niWPjs2Y/jJmJbhSFQqtu7ko/OmhtGHPVRcMhchEZYseHZ6AsSFl6sDPH7D0ocTFhgJk2ZKp4EC1/ijtOT4EkBQeW8dVaIVCPdnu/9oNe4AsjzNOyL/VOWvIYCpkhYsJDHPnKcXwDc2o4Dd3RSNAH38vRuf0z1vep1AcBxvzumn67deyanSr+1QaugHAhiZcdkiX2Y4BcqwZo05QwdKXZOakLEhVUb+tN+QAUbjChWqn0HDgs2rU7vFxiENQqOC1W5mzQ2iKOgHrw/5ZzRLxgodPNWep/+AzGEimSRXmgPgLYQWX014NsnT3MkPmOCCMghO7Cwuq9CQAKCaQQe7bt0g9owtXKJE4UxgDHmiA10K4K8XwwZiVPRlWs30FkrTP8qDcl0bh7+02YcPHJsz74ELLB79iYggxS3/8D+g4eD58xD5ENjx9bDcGAeASAXLF4uwipBmDom+AfU8yqErcPEKYEmAHgheq0AwBFKo3ur10o/06I89qDZkdvYuiMCMyKsAFvA9ORPmOEcnL3ad1RPusYA4EmXmeGIA4cMyxO/2iQR7Ydwev/Bw569vuBNam3UAdNjwZm3cInpeDLtjt6DeIBiKtnuSAAAdiwI+gVP5pPsL77+RoQHggFjA01QC5I3b9sJHigh95RuMiKHIpQDRR7e7WtNxOmFVgAYE5CO5Hv80iDJRD6PP3iPuK/PVA8AeBkUrs/+Cvm1TdAEYefQ8b0PYuL3CQnk/fXNrRu3bIcothUF6IoEMTSIsiAfnoMj1mEk9BrDiuCNEUjmFQnMmJLGTw5UP4P/W74LpAYAsbGhsV1D+BuxOxoMkCq5BY2U9CQ/Ln5/2/bvwkyiq2LqhUOg8GjDK4Awuoggh/8wtqioGDz0IJVHCy3g9FFm1teDhtS5AeJm6+i8XP5JARM6ePioT6cu2NIpN0+R4HBYo/fJa/SNm7fpbi8WFk++z8v7CqgNv8F2M/0O/SIGtOXvvabO8r5ZmkGznmZ/PXCw5NbyuvRCAGhlRXdyc3J426eelcmk0ndcE+LkR931vgzHt49kBYx81wMD8Wmfr84kpYjqrDz5grFq9MuZiL+x/FKsKDYAtUKACjf0yJZmBJrdlYRCXILHc6cUABDkhv3wk3pN/tsDAAkdg2kQ22C1jYiin9kiYhdlj5Asuj/hkFeHjrC7EE524ZsP2KQ2CgDYhdAF240YM66oiH4ZSUhUhgoA6DdoCE/VkvJIvAK4Ll25WmIypgOHCABoXV1FWgHkX4W5cPFKe9gEPORAwntoD4CGvuw/UHxFO9+R4FXO2HFKS8vG+wVY8N0nRf4LAaClpdVP4yeJX6wyZqf+s12JpJIGAEBJjtzU0z/aAueY8X7yrz0QesVgMQmRRNjRjvcPaGVpTRI8aNTUQuAw0ByJn6/T3TApiUIra3GK6vSw3Mr6Xy1afvFVf/FjaoLUABAyycgMlYn+gSX8Q1jQR3iSqNJEer0AwGTg5OKCFUABgNBbpTMcC+4FJxPCxREu2Na3QyN7AFIDWy52uxFjfhYAMCFaAQYOfiEAJBw84t2xi0CjkkxCoCtXr3V8731LO8S+zCApQ884P/68zyP+dQ8COZHp6BQWPRv5489wAhEBC/kvCABrAKCsnB20CUNf3x6A51RanDFDqzZIfAkOjf2x35SpWXzHAk0IHxMrmEJiIwQnllEkScAkDVt9P/JH/2nTgRA4MSZsZJSEkp8nTZby/lN+9puCkjETJi1e/qtY1gSZrADwJeiJhmCQiZMDxS/BMT5NLfxcMgPgpQFAbxaA7j142OPTz0gT4UmexINYiNk6JibRqxbkM/VNTtdu3OrW/SPsW6iiLP/1AwBxi5izUc5TeO0eCebl11LshwwbeesW/RYWSF4JxBkRVF24eBnG2p7vTipKYuA6d+t+6kwSeDgQE2uhWEvoHUS9vhZJxECXST7+q+WbAEAk8XQFm2MZAHUN/HwyA+DFAeDId4HkFaDoWcl3I0djJHjmo6mUgmBeoK0dnTEvlvML3rAhhldUEYS4GZtvhMLQgebdl9oD/HkAIMHa7u18/QKnDxs9prWNHVRSLrFh6c5Ma2u7z/r2E7+PBjIBAOjg4WMYOCt7B3FXVySE+M7unqvX/S4xNUBPnuboG33vum4IJBSD4w0f/VNJCf2G0MuRGQAvswJgE7xXdaN6XthiAID8GNqK8JfDIXgSvHnewsUmDyVAGk3BylVr3Lz44bEq6kB6/QCABeBMOyKj4IgIP9AXGwd0GX5MTibMi1UCo/xRry9OnpZ+zJMmaUq0GuD0UeaTPv0Gtray5lqSksigrZ69vhArYV0qL6/csGnLhx/3wkSemJRSIt/5oaVA1R+c+AVMa9HGErMMzS8sH0iDcHQn8Szt0bHhzy8oREXUE6ohL6o3QmYAvMwKQHeB5BUAdDYp1adjF5ZcezNHYuZ7HV/2G7B+45bT8IJzFzHMm7ftHDBkqI0zfbOqM/g9vdg40j74tQOAXtSBAus2bgYDfGjqjNn2/J4mqaRqDs6Hge70/of0k/3cmAhZ9Lyywf9WrFoDURgspQrX8kBz3Xp+/MvqtWnXbuZpCkrLyp6VlGRlPT1zNnlSQJCDmye28tj7urXzHf7DT3H7ErKeZFdqdSa9CQ0Lb2Nrj8Hie7WKfE8MB2A5d+GicZOmjB47Pp1/iBZ1oZoZAEb01wEAhg5dEA7vRO/UAQASeo0mMHKwg6dvB99OXb186R4XIg2UMzPPsqrbJv+VEAg6rJNfhistLQtfusKlrbeVHW1s1Jxgs7Czx95m05bt4h1YmmgBAo7kM7OeDh46EsESulZbC6Pj6m5l52Dr7Nq1+0f9B38//MefhowY/XnffogkMRywBm882lrbObaytMEuou+AwcqjTIW2R0TBmDC+GGtFPvLQE/bE+mDt4LwjIkrww3ocpz3HKK8TAO6Ori8PAHjP8wHAr/42CoBvXwgABw49HwBC+YePsvp/+x3GHoOkZhYJuqFHsBuSjYMLdm9Yx2EHtC7WdDXzXwoA+fMAqk0wrQAUAq37g1YAMdIVFdq1GzZhICwFBoyXNRR6+LRftnIVoAJmfrInudrppFQEPNATvVD4eXTodRK0i0tIcPQ2VrbwDTEtiqOLZzuMxdut2wz6fvi9e9LnYxS6dCWty/vdLWzplXUTI1B1+hiJGyQHBs0Un6ollYxvVdVLTQSAZN0TZ85irVcAIPQQABg68gesnoJfUOLZZHrxkFZSeWvoRq8o03OA3Q0CIH5vAr+B4yyMLuoC2W3bv1svAITtnD28YF8sjvDvkfJzAIXE2IgVoO6DMLjgkpWrBKeRKgyAdvx+HpoQnUWCK5vsAYT8cxcu9fz0i5YW1hhF6iyHqpxIw7rDxtERoCU97BNHJPTCxokAIKZVIRx/E/wDIZuE1LojfQJmzLhJ4l3/xsYbUjhSV70OLa9U/NAadhArAFqD6yCDCX5nZFRn8jns78Usw9jm1jGj27m4BYfMFR9oRBUO2kmBYyfPfNK7LxRD74QRwC8sIFVnUWLg+BJlMAqwM9pCFJR+9x7kmFBZeYVfYBA8TSwvUl3hV0geJAFXP/7iywz+9f+6T13qpSYDgOn4qTM+nbrSvCsNLXkejm1s7AkAxt8OfSYxqeuHPclH0UNhCNjayRXr/q5IehIsCMLVehIAsAI4uyA0FDZCXZimra/Rk2BEnCHzFraxcyDhbFwwI8GCdVcAYYiHjzL7fvMtGJhfSjT2zq7ih6yJjE2WcPCodycAnl6NRNwpqmBcMTXG7ZUehKGK8BhQUvK5foOGtLK2AQ4FMwaJXozjZQEjhCO6j1Ue/uHi6TVu0uQvvxkERNE6IKuEOcLK0Xn+omXCoaVjdfXYif70xpGwiZzeaWM5ZrwMACPdjQjVhZyLV9IQxKuNAAOqAcDMFNiI/MHDxz78z6cI4cBA/JIrU8KgYCqEVsqzDmAGExPyl69e+3HcJCt7p5YWVjCv0FkcYQEGADmDCBcxduBEAAM8A1FPntBLYuS+slVBomtXrl77z+d9WlnZQBnaO5H30ywADyGxfNMJc+XGLdupv0RcuVFqKgCEsCPHT2Kd+nfL1m2s7ThJb5//460WAwZ/n6ehN3AUOnXmLILFt1q1ITYrG/7kmz0GzMrBaduOSIlJEi7lQdhgwTowB9WiR4PWaOLt1hZwmsNHj0tMDIDps0L/951Wrek5In3SFPwtLSz/1aLloKEjC+X3dYmgOpsy41Hmp72/QhVZedL/ndYW71hYLli8THAaqQI07juIQXqrtr+UWrS2gNPQRpAJNTBaej19PThOH2Q8DA1b1Klbd6htYWMPJFjaOmBSF2MDz4PrYx3Hvm37zki4DiaOf779TitLKzAL+XCat9tYAt5iDyfQheOIH8f+s8U73FNZGRu7//fP/x0+eowMgAYHnG1AclIvXPL0ffffMILcHPSkz0BbWv8qvaBFrOBXpJ1NPterz9cYR/DUNs2tY5j+8XaLvt8Munj5Ctek/YCoVVRUvGnrjj79BwLeiNMsrG3h5QjtcIqEDPAD46B1jLKrlw96sTfhkPjsq16npw8AqrpD4QxLPp2Y3KffAJixjQ196BSTEdCL6ZI+zmGH+Moe4xsYFCxwKPrBAhqkJgGAmuevnriVfjd0waLA6cEzZodSmjUHx6BZcyYHBm3ZtsvkG0TgCuFLVgROnzl9diiQPWMWVZk+c/bsuQsuXLoqMbEDqZXE5BEyL2xa8Kxg1AL/rJCgmSEBQTPnLgi/dVv6gDwIzrEv4VAAhM8MIbGz51CaFeI/dfrmrTtMXg8kQ9TUFBQUrft9E1URyrP8acGzA2fMOnKUXrPDyBupwg+qQuYvnDpjFukv10IVbHnTrl0XPBgYjDr0QRLmxvHqtRtLlv/y/YjR7/X4CNt3J0yZru5e7Tt26/EfLPFr1//x6HEmOLU63aat2ydPnQ7NZ8wmYyIFzZw9dcbs/QcPCwAImRAduTsmYHqw6K9I02fN8QuYtm3nbvGSJrqJY0PENqjJePg4bPHyqdNnKkLQLsZoWnDIaX5cRe0xWsCvOFBa2o2QuWFgQ9dFLR6duRh6xNx+AUFbd0SUlvHrGGJPLJtRk18QGRUzedp0IOHdru97+nTggMfDzcvHt2OXHp9+NnT0j0uX/5qYlCo+DQxCr+G+euMABgL5nSZy68eZT1etWT/wu2Gd3vvAw7s9ratunoiQP/joY9h29Zr1t2/fhQZgJsyohNRLTd0EM0mnDdJzGeojiFUkN62Z51NdETQkjUqu2/RzFBEVJKotE4MkSKfTPc58kpxyLm5vAhICJJyqn/jU1qyPcFFORFJpvfRcBllf6aQBkttS8pSaQkCgwD9I/CPnU9Gz4tL0O/dOnkqMidsXE7f30JFjV9OuFxYUiVuoCsmNEklFMqFEmWJAlVrt/QcPj504jaU4bl9CUsq5nNxcRRrYGIbP70CTAGAmM/1fJTMAzNSsyQwAMzVrMgPATM2azAAwU7MmMwDM1KzJDAAzNWsyA8BMzZqaCQD2j/ofmUaJr91DicjVvdQQ7R/VcZn0oUAjIgnqK+pzWXrt9dr20NydZR2lk1oOkyqmEuqpUltU24yZmkbNBgCSa8BXRA5+JQOgqV5TLycLXKZcIV8ctUxu5M6yUaIcrcklHSWYKZowcT26YFKlrgSF5CpKVVOZZmoCmQHQyLxucqEeTkmcyZW6fogSyUcbaLexKkwmpyC5irqqIt1MTaTmFgLVdRXlkqm/16E6AFCc8nkAMPJLXFW1Jjdv6rdGVYxP61SRC5hMBZmpUWpeKwD5nuQgikfVcesGSeJU/G+D8GSZasUYA8DoDJWlE5UuRLUXQMYCTE9lMqoiqOmdMZMgcwj0wgCoh0yuqBzWxEnVrmx8qfaKSZV63FyiOrhomNVMDVFzA4DiNXCW+gCAy0p5rTchbzzHm5CReGYlos2xlCUSLJIoIhQYn5EAVUn9EhqrolpRzNQ0aiYAMJOZ6iczAMzUrMkMADM1azIDwEzNmswAMFOzJjMAzNSsyQwAMzVrMgPATM2azAAwUzOmmpr/DzwONqfUcc/1AAAAAElFTkSuQmCC'"
+                                    class="img img-fluid"
+                                    style="max-height: 50px; max-width: 150px;"
+                                />
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <style>
+                    * {
+                        font-size: 12px !important;
+                        border: none !important;
+                    }
+
+                    table td, table th {
+                        border: 1px solid #222 !important;
+                        text-align: center !important;
+                    }
+
+                    table th {
+                        background-color: #f8b31d !important;
+                        font-weight: bold !important;
+                    }
+
+                </style>
+                <div style="position: relative;">
+                    <h1 class="watermark" style="opacity: 0.5; font-size: 100px; text-align: center; position: absolute; width: 100%; z-index: -1; color: lightgray;">NO FISCAL</h1>
+                </div>
+                <t t-set="bcv" t-value="doc.env.ref('base.USD').rate_ids[0].inverse_company_rate" />
+
+                <table class="table table-sm o_main_table mt-4" style="text-align: left !important;">
+                    <tr>
+                        <th>
+                            Fecha:
+                        </th>
+                        <td>
+                            <span t-field="doc.date_order" t-options='{"widget": "date"}'>2023-12-31</span>
+                        </td>
+                        <th>
+                            Pedido N°:
+                        </th>
+                        <td>
+                            <span t-field="doc.name">SO0000</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>
+                            RIF cliente:
+                        </th>
+                        <td>
+                            <span t-esc="doc.partner_id.rif or doc.partner_id.identification_id">J-12345678</span>
+                        </td>
+                        <th>
+                            Nombre del cliente:
+                        </th>
+                        <td>
+                            <span t-field="doc.partner_id.name" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>
+                            COD cliente:
+                        </th>
+                        <td>
+                            <!-- <span t-esc="doc.partner_id.code">12345678</span> -->
+                        </td>
+                        <th>
+                            Tipo de Cliente:
+                        </th>
+                        <td>
+                            <span t-esc="doc.partner_id.customer_type.name"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>
+                            Correo:
+                        </th>
+                        <td>
+                            <span t-esc="doc.partner_id.email"></span>
+                        </td>
+                        <th>
+                            TLF:
+                        </th>
+                        <td>
+                            <span t-esc="doc.partner_id.phone"></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th colspan="2">
+                            Dirección de Entrega:
+                        </th>
+                        <td colspan="2">
+                            <span t-esc="doc.partner_id.street"></span>
+                        </td>
+                    </tr>
+                </table>
+                <div class="oe_structure"/>
+
+                <div class="row mt-4 mb-2" id="informations">
+                    <div t-if="doc.client_order_ref" class="col-auto col-3 mw-100 mb-2" name="informations_reference">
+                        <strong>Your Reference:</strong><br/>
+                        <span class="m-0" t-field="doc.client_order_ref">SO0000</span>
+                    </div>
+                    <div t-if="doc.date_order" class="col-auto col-3 mw-100 mb-2" name="informations_date">
+                        <strong t-if="doc.state in ['draft', 'sent']">Fecha:</strong>
+                        <strong t-else="">Fecha:</strong><br/>
+                        <span class="m-0" t-field="doc.date_order" t-options='{"widget": "date"}'>2023-12-31</span>
+                    </div>
+                    <div t-if="doc.validity_date and doc.state in ['draft', 'sent']"
+                        class="col-auto col-3 mw-100 mb-2"
+                        name="expiration_date">
+                        <strong>Expiración:</strong><br/>
+                        <span class="m-0" t-field="doc.validity_date">2023-12-31</span>
+                    </div>
+                    <div t-if="doc.user_id.name" class="col-auto col-3 mw-100 mb-2">
+                        <strong>Vendedor:</strong><br/>
+                        <span class="m-0" t-field="doc.user_id">Mitchell Admin</span>
+                    </div>
+                </div>
+
+                <!-- Is there a discount on at least one line? -->
+                <t t-set="lines_to_report" t-value="doc._get_order_lines_to_report()"/>
+                <t t-set="display_discount" t-value="any(l.discount for l in lines_to_report)"/>
+
+                <div class="oe_structure"></div>
+                <table class="table table-sm o_main_table  mt-4">
+                    <!-- In case we want to repeat the header, remove "display: table-row-group" -->
+                    <thead style="display: table-row-group">
+                        <tr>
+                            <!-- <th name="th_description" class="text-start">Descripción</th> -->
+                            <th name="th_ref" class="text-start">Código</th>
+                            <th name="th_name" class="text-start">Nombre de artículo</th>
+                            <th name="th_quantity" class="text-end">Unidades</th>
+                            <th name="th_quantity_packaging" class="text-end">Embalaje</th>
+                            <th name="th_priceunit" class="text-end">Precio Unitario</th>
+                            <th name="th_priceunit" class="text-end">Precio / Caja</th>
+                            <th name="th_discount" t-if="display_discount" class="text-end">
+                                <span>Desc.%</span>
+                            </th>
+                            <th name="th_taxes" class="text-end">IVA</th>
+                            <th name="th_subtotal" class="text-end">
+                                <span>Subtotal</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="sale_tbody">
+
+                        <t t-set="current_subtotal" t-value="0"/>
+
+                        <t t-foreach="lines_to_report" t-as="line">
+
+                            <t t-set="current_subtotal" t-value="current_subtotal + line.price_subtotal"/>
+
+                            <tr t-att-class="'bg-200 fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
+                                <t t-if="not line.display_type">
+                                    <td name="td_ref"><span t-esc="line.name.split(' ')[0]">Bacon Burger</span></td>
+                                    <td name="td_name">
+                                        <span t-esc="' '.join(line.name.split(' ')[1:])">Bacon Burger</span>
+                                    </td>
+                                    <td name="td_quantity" class="text-end">
+                                        <span t-esc="int(line.product_uom_qty)">3</span>
+                                        <!-- <span t-field="line.product_uom">units</span>
+                                        <span t-if="line.product_packaging_id">
+                                            (<span t-field="line.product_packaging_qty" t-options='{"widget": "integer"}'/> <span t-field="line.product_packaging_id"/>)
+                                        </span> -->
+                                    </td>
+                                    <td name="td_quantity_packaging">
+                                        <span t-esc="str(int(line.product_packaging_qty)) + str(line.product_packaging_id.name)" />
+                                    </td>
+                                    <td name="td_priceunit" class="text-end">
+					                    <span t-esc="str(round(line.price_unit,2)) + ' Bs'">3</span>
+                                    </td>
+                                    <td name="td_priceunit_packaging" class="text-end">
+					                    <span t-esc="str(round((line.price_unit * line.product_packaging_id.qty),2)) + ' Bs'">3</span> 
+                                    </td>
+                                    <td t-if="display_discount" class="text-end">
+					                    <span t-esc="round(line.discount,2)">3</span>
+                                    </td>
+                                    <t t-set="taxes" t-value="', '.join([(tax.invoice_label or tax.name) for tax in line.tax_id])"/>
+                                    <td name="td_taxes" t-attf-class="text-end {{ 'text-nowrap' if len(taxes) &lt; 10 else '' }}">
+                                        <span t-out="taxes">Tax 15%</span>
+                                    </td>
+                                    <td t-if="not line.is_downpayment" name="td_subtotal" class="text-end o_price_total">
+					                    <span t-esc="str(round(line.price_subtotal,2)) + ' Bs'">3</span>
+                                    </td>
+                                </t>
+                                <t t-elif="line.display_type == 'line_section'">
+                                    <td name="td_section_line" colspan="99">
+                                        <span t-field="line.name">A section title</span>
+                                    </td>
+                                    <t t-set="current_section" t-value="line"/>
+                                    <t t-set="current_subtotal" t-value="0"/>
+                                </t>
+                                <t t-elif="line.display_type == 'line_note'">
+                                    <td name="td_note_line" colspan="99">
+                                        <span t-field="line.name">A note, whose content usually applies to the section or product above.</span>
+                                    </td>
+                                </t>
+                            </tr>
+
+                            <t t-if="current_section and (line_last or lines_to_report[line_index+1].display_type == 'line_section') and not line.is_downpayment">
+                                <tr class="is-subtotal text-end">
+                                    <td name="td_section_subtotal" colspan="99">
+                                        <strong class="mr16">Subtotal</strong>
+                                        <span
+						                    t-esc="round(current_subtotal,2)"
+                                            t-options='{"widget": "monetary", "display_currency": doc.currency_id}'
+                                        >31.05</span>
+                                    </td>
+                                </tr>
+                            </t>
+                        </t>
+                    </tbody>
+                </table>
+                <div class="clearfix" name="so_total_summary">
+                    <div id="total" class="row" name="total">
+                        <div t-attf-class="#{'col-6' if report_type != 'html' else 'col-sm-7 col-md-6'} ms-auto">
+                            <table class="table table-sm ">
+                                <!-- Tax totals -->
+                                <t t-set="tax_totals" t-value="doc.tax_totals"/>
+                                <t t-call="sale.document_tax_totals"/>
+                            </table>
+                            <table class="table table-sm">
+                                <t t-foreach="tax_totals.get('subtotals')" t-as="subtotal">
+                                    <tr class="border-black o_subtotal">
+                                        <td><strong t-out="subtotal['name']">Untaxed Amount</strong></td>
+
+                                        <td class="text-end">
+                                            <span
+                                                t-att-class="oe_subtotal_footer_separator"
+                                                t-esc="str(round(doc.amount_untaxed / bcv,2)) + '$'"
+                                            >27.00</span>
+                                        </td>
+                                    </tr>
+
+                                    <t t-set="subtotal_to_show" t-value="subtotal['name']"/>
+                                    <!-- <t t-call="account.tax_groups_totals"/> -->
+                                    <t t-foreach="tax_totals['groups_by_subtotal'][subtotal_to_show]" t-as="amount_by_group">
+                                        <t t-set="display_tax_base" t-value="tax_totals['display_tax_base']"/>
+                                        <tr>
+                                            <t t-if="tax_totals['display_tax_base']">
+                                                <td>
+                                                    <span t-esc="amount_by_group['tax_group_name']"/>
+                                                    <span t-if="not amount_by_group['hide_base_amount']" class="text-nowrap"> on
+                                                        <t t-esc="amount_by_group['formatted_tax_group_base_amount']"/>
+                                                    </span>
+                                                </td>
+                                                <td class="text-end o_price_total">
+                                                    <span class="text-nowrap" t-out="amount_by_group['formatted_tax_group_amount']">1.05</span>
+                                                </td>
+                                            </t>
+                                            <t t-else="">
+                                                <td>
+                                                    <span t-out="amount_by_group['tax_group_name']">Tax 15%</span>
+                                                </td>
+                                                <td class="text-end o_price_total">
+                                                    <span class="text-nowrap" t-out="str(round(amount_by_group['tax_group_amount'] / bcv,2)) + '$'">4.05</span>
+                                                </td>
+                                            </t>
+                                        </tr>
+                                    </t>
+                                </t>
+
+                                <tr t-if="'formatted_rounding_amount' in tax_totals and tax_totals.get('rounding_amount') != 0">
+                                    <td>Rounding</td>
+                                    <td class="text-end">
+                                        <span t-out="tax_totals.get('formatted_rounding_amount')">0</span>
+                                    </td>
+                                </tr>
+                                
+                                <!--Total amount with all taxes-->
+                                <tr class="border-black o_total">
+                                    <td><strong>Total</strong></td>
+                                    <td  class="text-end">
+                                        <span t-out="str(round(doc.amount_total / bcv,2)) + '$'">31.05</span>
+                                    </td>
+                                </tr>
+
+                                
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="oe_structure"></div>
+
+                <div t-if="not doc.signature" class="oe_structure"></div>
+                <div t-else="" class="mt-4 ml64 mr4" name="signature">
+                    <div class="offset-8">
+                        <strong>Signature</strong>
+                    </div>
+                    <div class="offset-8">
+                        <img t-att-src="image_data_uri(doc.signature)" style="max-height: 4cm; max-width: 8cm;"/>
+                    </div>
+                    <div class="offset-8 text-center">
+                        <span t-field="doc.signed_by">Oscar Morgan</span>
+                    </div>
+                </div>
+                <div>
+                    <span t-field="doc.note" t-attf-style="#{'text-align:justify;text-justify:inter-word;' if doc.company_id.terms_type != 'html' else ''}" name="order_note"/>
+                    <p t-if="not is_html_empty(doc.payment_term_id.note)">
+                        <span t-field="doc.payment_term_id.note">The payment should also be transmitted with love</span>
+                    </p>
+                    <div class="oe_structure"/>
+                    <p t-if="doc.fiscal_position_id and not is_html_empty(doc.fiscal_position_id.sudo().note)"
+                        id="fiscal_position_remark">
+                        <strong>Fiscal Position Remark:</strong>
+                        <span t-field="doc.fiscal_position_id.sudo().note">No further requirements for this payment</span>
+                    </p>
+                </div>
+                <div class="oe_structure"/>
+            </div>
+        </xpath>
+    </template>
+  
+    <!--nueva columna moneda actual--> 
+
+    <template id="report_saleorder_document_inherit_universal" inherit_id="sale.report_saleorder_document">
+        <xpath expr="//t[@t-call='web.external_layout']" position="attributes">
+            <attribute name="t-call">web.basic_layout</attribute>
+        </xpath>
+        <xpath expr="//div[@class='page']" position="replace">
+            <div class="page">
+                <div class="clearfix" name="so_total_summary">
+                    <div id="total" class="row" name="total">
+                        <div t-attf-class="#{'col-6' if report_type != 'html' else 'col-sm-7 col-md-6'} ms-auto">
+                            <table class="table table-sm">
+                                <tr class="border-black o_total">
+                                    <td><strong>Total</strong></td>
+                                    <td class="text-end">
+                                        <span t-field="doc.amount_total" t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                    </td>
+                                </tr>
+                                <tr class="border-black o_total">
+                                    <td><strong>Total Actual (Bs.)</strong></td>
+                                    <td class="text-end">
+                                        <span t-field="doc.amount_total_now_currency"
+                                              t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+      <record id="view_order_tree_inherit_custom_currency" model="ir.ui.view">
+        <field name="name">sale.order.tree.inherit.custom.currency</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_quotation_tree_with_onboarding"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='amount_total']" position="after">
+                <field name="amount_total_now_currency" optional="show" sum="Total"/>
+            </xpath>
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="branch_id" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

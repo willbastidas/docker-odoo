@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="action_report_print_wizard_pdf" model="ir.actions.report">
+            <field name="name">Imprimir Texto Factura</field>
+            <field name="model">account.move.print.wizard</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">cosmosys_reports_universal.report_invoice_text_template</field>
+            <field name="report_file">cosmosys_reports_universal.report_invoice_text_template</field>
+            <field name="print_report_name">'Texto_Factura.pdf'</field>
+            <field name="binding_model_id" ref="model_account_move_print_wizard"/>
+            <field name="binding_type">report</field>
+        </record>
+
+        <template id="report_invoice_text_template">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="doc">
+                    <t t-call="web.basic_layout">
+                        <div class="page">
+                            <hr/>
+
+                            <div class="container-fluid mb-2" style="font-family: 'Courier New', Courier, monospace; font-size: 14px;">
+        
+                                <div class="row mb-1">
+                                    <div class="col-3">Razón Social:</div>
+                                    <div class="col-9"><span t-field="doc.razon_social"/></div>
+                                </div>
+
+                                <div class="row mb-1">
+                                    <div class="col-3">RIF:</div>
+                                    <div class="col-9"><span t-field="doc.rif"/></div>
+                                </div>
+
+                                <div class="row mb-1">
+                                    <div class="col-3">Domicilio Fiscal:</div>
+                                    <div class="col-9"><span t-field="doc.domi"/></div>
+                                </div>
+
+                                <t t-if="doc.move_type == 'out_invoice'">
+                                    <div class="row mb-1">
+                                        <t t-if="doc.journal_id_code == 'ND'">
+                                            <div class="col-3">NOTA DE DÉBITO:</div>
+                                            <div class="col-2"><span t-field="doc.debit_note_number"/></div>
+                                            <div class="col-2">FECHA NOTA DÉBITO:</div>
+                                            <div class="col-1"><span t-field="doc.invoice_date" t-options='{"widget": "date"}'/></div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="col-3">FACTURA:</div>
+                                            <div class="col-2"><span t-out="doc.factura"/></div>
+                                            <div class="col-2">FECHA DE FACTURA:</div>
+                                            <div class="col-1"><span t-field="doc.invoice_date" t-options='{"widget": "date"}'/></div>
+                                        </t>
+                                    </div>
+                                    <div class="row mb-1">
+                                        <t t-if="doc.journal_id_code == 'ND'">
+                                            <div class="col-3">FACTURA AFECTADA:</div>
+                                            <div class="col-2"><span t-field="doc.factura_afectada"/></div>
+                                            <div class="col-2">CONDIC. PAGO:</div>
+                                            <div class="col-1"><span t-field="doc.con_pago"/></div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="col-3">FECHA VENCIMIENTO:</div>
+                                            <div class="col-2"><span t-field="doc.invoice_date_due" t-options='{"widget": "date"}'/></div>
+                                            <div class="col-2">CONDIC. PAGO:</div>
+                                            <div class="col-1"><span t-field="doc.con_pago"/></div>
+                                        </t>
+                                    </div>
+                                </t>
+                                
+                                <t t-elif="doc.move_type == 'out_refund' or doc.reversed_entry_id">
+                                    <div class="row mb-1">
+                                        <div class="col-3">NOTA DE CRÉDITO:</div>
+                                        <div class="col-3"><span t-out="doc.credit_note_number or doc.name"/></div>
+                                        <div class="col-3">FECHA NOTA CRÉDITO:</div>
+                                        <div class="col-3"><span t-field="doc.invoice_date" t-options='{"widget": "date"}'/></div>
+                                    </div>
+                                </t>
+
+                                <div class="row mb-1" style="padding-bottom: 10px;">
+                                    <div class="col-3">OBSERVACIONES:</div>
+                                    <div class="col-9">
+                                        <span t-field="doc.obs"/>
+                                    </div>
+                                </div>
+
+                                <div class="row mt-2 mb-2">
+                                    <div class="col-12">
+                                        <div style="border-top: 1px dashed #000; height: 1px; width: 100%;"></div>
+                                    </div>
+                                </div>
+
+                                <t t-set="has_discount" t-value="any(line.discount > 0 for line in doc.line_ids)"/>
+
+                                <div class="row mb-1" style="font-family: 'Courier New', Courier, monospace; padding-bottom: 10px; padding-top: 10px;">
+                                    <div class="col-6">Descripción</div>
+                                    <div class="col-1">Unid.</div>
+                                    <!-- <div class="col-1">Cajas</div> -->
+                                    <div class="col-2">Precio</div>
+                                    <div class="col-1" t-if="has_discount">Desc</div>
+                                    <div class="col-3">Subtotal</div>
+                                </div>
+
+                                <div class="row mt-2 mb-2">
+                                    <div class="col-12">
+                                        <div style="border-top: 1px dashed #000; height: 1px; width: 100%;"></div>
+                                    </div>
+                                </div>
+
+                                <t t-foreach="doc.line_ids" t-as="line">
+                                    <div class="row mb-1" style="font-family: 'Courier New', Courier, monospace; padding-top: 10px;">
+                                        <div class="col-6">
+                                            <span t-field="line.name"/>
+                                        </div>
+                                        <div class="col-1">
+                                            <t t-out="int(line.quantity)"/>
+                                        </div>
+                                        <!-- <div class="col-1">
+                                            <t t-if="'product_packaging_qty' in line._fields">
+                                                <t t-out="int(line.product_packaging_qty)"/>
+                                            </t>
+                                            <t t-else="">
+                                                0
+                                            </t>
+                                        </div> -->
+                                        <div class="col-2">
+                                            <span t-field="line.price_unit" t-options='{"widget": "monetary", "display_currency": line.currency_id}'/>
+                                        </div>
+                                        <div class="col-1" t-if="has_discount">
+                                            <t t-out="int(line.discount)"/>%
+                                        </div>
+                                        <div class="col-3">
+                                            <span t-field="line.price_subtotal" t-options='{"widget": "monetary", "display_currency": line.currency_id}'/>
+                                        </div>
+                                    </div>
+                                </t>
+
+                                <div class="row mt-2 mb-2" style="padding-bottom: 10px; padding-top: 10px;">
+                                    <div class="col-12">
+                                        <div style="border-top: 1px dashed #000; height: 1px; width: 100%;"></div>
+                                    </div>
+                                </div>
+
+                                <t t-if="doc.bcv != False and doc.bcv != ''">
+                                    <div class="row mb-1">
+                                        <div class="col-6">Tasa BCV:</div>
+                                        <div class="col-2"><span t-out="doc.bcv"/></div>
+                                        <!-- <div class="col-2">TOTAL DE CAJAS:</div>
+                                        <div class="col-2"><span t-out="doc.total_packages"/></div> -->
+                                    </div>
+                                </t>
+
+                                <div class="row mt-2 mb-2" style="padding-bottom: 10px; padding-top: 10px;">
+                                    <div class="col-12">
+                                        <div style="border-top: 1px dashed #000; height: 1px; width: 100%;"></div>
+                                    </div>
+                                </div>
+
+
+                            </div>
+
+                            <div class="container-fluid" style="font-family: 'Courier New', Courier, monospace; font-size: 14px; margin-top: 10px;">
+
+                                <t t-if="doc.currency_name != 'USD'">
+                                    <div class="row">
+                                        <div class="col-6">BASE IMPONIBLE:</div>
+                                        <div class="col-3"><span t-field="doc.base_imponible"/> Bs.</div>
+                                        <div class="col-1">|</div>
+                                        <div class="col-2"><span t-field="doc.usd_total"/> $</div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-6">IVA:</div>
+                                        <div class="col-3"><span t-field="doc.iva"/> Bs.</div>
+                                        <div class="col-1">|</div>
+                                        <div class="col-2"><span t-field="doc.usd_iva"/> $</div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-6">TOTAL FACTURA:</div>
+                                        <div class="col-3"><span t-field="doc.total_bsf"/> Bs.</div>
+                                        <div class="col-1">|</div>
+                                        <div class="col-2"><span t-field="doc.usd_total_con_iva"/> $</div>
+                                    </div>
+                                </t>
+
+                                <t t-else="">
+                                    <div class="row">
+                                        <div class="col-6">BASE IMPONIBLE USD:</div>
+                                        <div class="col-3"><span t-field="doc.base_imponible"/> $</div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-6">IVA USD:</div>
+                                        <div class="col-3"><span t-field="doc.iva"/> $</div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-6">TOTAL USD:</div>
+                                        <div class="col-3"><span t-field="doc.total_bsf"/> $</div>
+                                    </div>
+                                </t>
+
+                                <div class="row mt-2 mb-2">
+                                    <div class="col-12">
+                                        <div style="border-top: 1px dashed #000; height: 1px; width: 100%;"></div>
+                                    </div>
+                                </div>
+
+                                <div class="row mt-3" style="font-family: 'Courier New', Courier, monospace; text-align: justify; line-height: 1.2;">
+                                    <div class="col-12">
+                                        <p>
+                                            De conformidad con la normativa vigente que rige la materia, siempre y cuando no esté bajo los supuestos 
+                                            de exoneración, exención o no sujeción, de realizar el pago de la presente factura en moneda distinta 
+                                            a la de curso legal en el país, se generará un cobro adicional del 3% correspondiente al IGTF, sobre 
+                                            el monto de lo pagado.
+                                        </p>
+                                    </div>
+                                </div>
+
+
+                            </div>
+                            
+                        </div>
+                    </t>
+                </t>
+            </t>
+        </template>
+
+    </data>
+</odoo>

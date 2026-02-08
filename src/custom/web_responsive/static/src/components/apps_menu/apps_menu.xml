@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Copyright 2018 Tecnativa - Jairo Llopis
+     Copyright 2021 ITerra - Sergey Shebanin
+     Copyright 2023 Onestein - Anjeel Haria
+     Copyright 2023 Taras Shabaranskyi
+     License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl). -->
+<templates>
+    <t t-inherit="web.NavBar.AppsMenu" t-inherit-mode="extension">
+        <xpath expr="//Dropdown" position="attributes">
+            <attribute name="class">'o_navbar_apps_menu hide'</attribute>
+            <attribute name="skipTogglerTabbing">true</attribute>
+            <attribute name="hotkey" remove="'h'" add="'shift+h'" separator=" " />
+        </xpath>
+        <xpath expr="//Dropdown" position="after">
+            <AppsMenu>
+                <t t-set-slot="search_bar">
+                    <AppsMenuSearchBar />
+                </t>
+                <AppMenuItem
+                    t-foreach="apps"
+                    t-as="app"
+                    t-key="app.id"
+                    app="app"
+                    currentApp="currentApp"
+                    href="getMenuItemHref(app)"
+                    onClick="onNavBarDropdownItemSelection.bind(this)"
+                />
+            </AppsMenu>
+        </xpath>
+    </t>
+
+    <!-- Apps menu -->
+    <t t-name="web_responsive.AppsMenu">
+        <div class="o_grid_apps_menu" t-att-data-theme="theme">
+            <button
+                class="o_grid_apps_menu__button"
+                title="Home Menu"
+                data-hotkey="h"
+                t-on-click.stop="onMenuClick"
+            >
+                <i class="oi oi-apps fs-4" />
+            </button>
+            <div t-if="state.open" class="app-menu-container">
+                <t t-slot="search_bar" />
+                <div t-if="state.pending_delivery" class="o_alert alert alert-warning" style="margin: 10px; padding: 10px; border-radius: 5px; font-weight: bold; color: #856404; background-color: #fff3cd; border-color: #ffeeba;">
+                    ⚠️ <strong>ADVERTENCIA FISCAL - SENIAT</strong> ⚠️
+                    <br/>
+                    Se ha detectado una posible irregularidad en el cierre contable. Existen notas de entrega no facturadas, lo que podría constituir una evasión fiscal conforme a la normativa vigente.
+                </div>
+                <div class="o-app-menu-list">
+                    <t t-slot="default" />
+                </div>
+              <a 
+                  href="https://www.instagram.com/aconingua_tech/" 
+                  target="_blank"
+                  class="o_brand_developed_by"
+              >
+                <img src="/web_responsive/static/src/img/logo_aconingua.png" alt="Aconingua Logo" width="110" height="110"/>
+              </a>
+            </div>
+        </div>
+    </t>
+</templates>
