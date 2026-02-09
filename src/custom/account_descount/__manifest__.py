@@ -11,6 +11,7 @@
         'base',
         'account',
         'account_accountant',
+        'contacts'
     ],
     'data': [
         'security/ir.model.access.csv',
